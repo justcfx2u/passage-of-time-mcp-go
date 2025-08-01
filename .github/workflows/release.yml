@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          # Windows ARM64 builds require Go 1.17+, but let's keep it simple for now
+          - goos: windows
+            goarch: arm64
+            
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Run tests
+      run: go test ./...
+      
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        if [ "$GOOS" = "windows" ]; then
+          BINARY_NAME="passage-of-time-$GOOS-$GOARCH.exe"
+        else
+          BINARY_NAME="passage-of-time-$GOOS-$GOARCH"
+        fi
+        go build -ldflags="-s -w" -o "$BINARY_NAME"
+        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+        
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ env.BINARY_NAME }}
+        asset_name: ${{ env.BINARY_NAME }}
+        asset_content_type: application/octet-stream
