@@ -43,12 +43,9 @@ jobs:
         go build -ldflags="-s -w" -o "$BINARY_NAME"
         echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
         
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - name: GH Release
+      uses: softprops/action-gh-release@v2.3.2
+      with:
+        files: ${{ env.BINARY_NAME }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ env.BINARY_NAME }}
-        asset_name: ${{ env.BINARY_NAME }}
-        asset_content_type: application/octet-stream
