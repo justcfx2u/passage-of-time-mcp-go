@@ -3,51 +3,70 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/justcfx2u/passage-of-time-mcp-go/passageoftime"
 )
 
 const defaultTimezone = "UTC"
 
 // Tool argument structs
 type CurrentDateTimeArgs struct {
-	Timezone string `json:"timezone,omitempty" mcp:"Timezone name (e.g., 'UTC', 'US/Pacific'). Defaults to 'UTC'."`
+	Timezone                     string `json:"timezone,omitempty" mcp:"Timezone name (e.g., 'UTC', 'US/Pacific'). Defaults to 'UTC'."`
+	AutodetectAndUseUserTimezone bool   `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
 }
 
 type TimeDifferenceArgs struct {
-	Timestamp1 string `json:"timestamp1" mcp:"First timestamp in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	Timestamp2 string `json:"timestamp2" mcp:"Second timestamp in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	Unit       string `json:"unit,omitempty" mcp:"Desired unit: auto, seconds, minutes, hours, days"`
-	Timezone   string `json:"timezone,omitempty" mcp:"Timezone for parsing ambiguous timestamps"`
+	Timestamp1                   string `json:"timestamp1" mcp:"First timestamp: standard formats (YYYY-MM-DD HH:MM:SS), durations (-14d, 2h30m, -5s), natural language ('tomorrow at 3pm'), or dateparse formats"`
+	Timestamp2                   string `json:"timestamp2" mcp:"Second timestamp: standard formats (YYYY-MM-DD HH:MM:SS), durations (1w, -2M, 3y), natural language ('next Monday'), or dateparse formats"`
+	Unit                        string `json:"unit,omitempty" mcp:"Desired unit: auto, seconds, minutes, hours, days"`
+	Timezone                    string `json:"timezone,omitempty" mcp:"Timezone for parsing ambiguous timestamps"`
+	AutodetectAndUseUserTimezone bool   `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
+	EnableFuzzyParsing          bool   `json:"enable_fuzzy_parsing,omitempty" mcp:"If true, enables 4-layer parsing: 1) durations (-14d, 2h30m), 2) dateparse formats, 3) natural language ('tomorrow'), 4) fallback. Supports EN, RU, PT_BR, ZH, NL."`
 }
 
 type TimeSinceArgs struct {
-	Timestamp string `json:"timestamp" mcp:"Past timestamp in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	Timezone  string `json:"timezone,omitempty" mcp:"Timezone for parsing and current time"`
+	Timestamp                    string `json:"timestamp" mcp:"Past timestamp: standard formats, durations (-3d, -2h30m), natural language ('3 days ago'), or dateparse formats"`
+	Timezone                     string `json:"timezone,omitempty" mcp:"Timezone for parsing and current time"`
+	AutodetectAndUseUserTimezone bool   `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
+	EnableFuzzyParsing          bool   `json:"enable_fuzzy_parsing,omitempty" mcp:"If true, enables 4-layer parsing: 1) durations (-1w, -24h), 2) dateparse formats, 3) natural language ('yesterday'), 4) fallback. Supports EN, RU, PT_BR, ZH, NL."`
 }
 
 type ParseTimestampArgs struct {
-	Timestamp      string `json:"timestamp" mcp:"Timestamp string in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	SourceTimezone string `json:"source_timezone,omitempty" mcp:"Timezone of the input (if None, uses target_timezone)"`
-	TargetTimezone string `json:"target_timezone,omitempty" mcp:"Desired output timezone"`
+	Timestamp                    string `json:"timestamp" mcp:"Timestamp: standard formats, durations (1d, -2h30m, 5w), natural language ('tomorrow at 3pm'), or dateparse formats"`
+	SourceTimezone              string `json:"source_timezone,omitempty" mcp:"Timezone of the input (if None, uses target_timezone)"`
+	TargetTimezone              string `json:"target_timezone,omitempty" mcp:"Desired output timezone"`
+	AutodetectAndUseUserTimezone bool   `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
+	EnableFuzzyParsing          bool   `json:"enable_fuzzy_parsing,omitempty" mcp:"If true, enables 4-layer parsing: 1) durations (1d, -2h), 2) dateparse formats, 3) natural language ('next Monday'), 4) fallback. Supports EN, RU, PT_BR, ZH, NL."`
 }
 
 type AddTimeArgs struct {
-	Timestamp string  `json:"timestamp" mcp:"Starting timestamp in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	Duration  float64 `json:"duration" mcp:"Amount to add (can be negative to subtract)"`
-	Unit      string  `json:"unit" mcp:"Unit: seconds, minutes, hours, days, weeks"`
-	Timezone  string  `json:"timezone,omitempty" mcp:"Timezone for calculations"`
+	Timestamp                    string  `json:"timestamp" mcp:"Starting timestamp: standard formats, durations (-1w, 3d, 2h30m), natural language ('tomorrow'), or dateparse formats"`
+	Duration                     float64 `json:"duration" mcp:"Amount to add (can be negative to subtract)"`
+	Unit                        string  `json:"unit" mcp:"Unit: seconds, minutes, hours, days, weeks"`
+	Timezone                    string  `json:"timezone,omitempty" mcp:"Timezone for calculations"`
+	AutodetectAndUseUserTimezone bool    `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
+	EnableFuzzyParsing          bool    `json:"enable_fuzzy_parsing,omitempty" mcp:"If true, enables 4-layer parsing: 1) durations (7d, -1M, 2y), 2) dateparse formats, 3) natural language ('yesterday'), 4) fallback. Supports EN, RU, PT_BR, ZH, NL."`
 }
 
 type TimestampContextArgs struct {
-	Timestamp string `json:"timestamp" mcp:"Timestamp to analyze in format YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"`
-	Timezone  string `json:"timezone,omitempty" mcp:"Timezone for context"`
+	Timestamp                    string `json:"timestamp" mcp:"Timestamp to analyze: standard formats, durations (-6M, 1y, 30d), natural language ('end of month'), or dateparse formats"`
+	Timezone                     string `json:"timezone,omitempty" mcp:"Timezone for context"`
+	AutodetectAndUseUserTimezone bool   `json:"autodetect_and_use_user_timezone,omitempty" mcp:"If true, automatically detect and use the system's local timezone instead of UTC default."`
+	EnableFuzzyParsing          bool   `json:"enable_fuzzy_parsing,omitempty" mcp:"If true, enables 4-layer parsing: 1) durations (-1y, 6M, 90d), 2) dateparse formats, 3) natural language ('next month'), 4) fallback. Supports EN, RU, PT_BR, ZH, NL."`
 }
 
 type FormatDurationArgs struct {
 	Seconds float64 `json:"seconds" mcp:"Duration in seconds (can be negative)"`
 	Style   string  `json:"style,omitempty" mcp:"Format style: full, compact, minimal"`
+}
+
+type ListTimezonesArgs struct {
+	Filter  string `json:"filter,omitempty" mcp:"Optional filter to search timezones by region, city, or IANA ID (e.g., 'America', 'London', 'Pacific')"`
+	Limit   int    `json:"limit,omitempty" mcp:"Maximum number of timezones to return (default: 25 popular timezones, max: 100 per page)"`
+	Page    int    `json:"page,omitempty" mcp:"Page number for pagination (1-based, default: 1). Use with limit to paginate through all 597+ timezones"`
 }
 
 // registerTools registers all time-related tools with the MCP server
@@ -93,26 +112,37 @@ func registerTools(server *mcp.Server) {
 		Name:        "format_duration",
 		Description: "Format a duration in seconds into human-readable text",
 	}, handleFormatDuration)
+
+	// Register list_timezones tool
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_timezones",
+		Description: "List IANA timezone identifiers with pagination. Returns 25 popular timezones by default. Use limit (max 100) and page parameters to paginate through all 597+ timezones. Supports filtering by region/city.",
+	}, handleListTimezones)
 }
 
 // Tool handlers
 func handleCurrentDateTime(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[CurrentDateTimeArgs]) (*mcp.CallToolResultFor[struct{}], error) {
 	timezone := params.Arguments.Timezone
 	if timezone == "" {
-		timezone = defaultTimezone
+		if params.Arguments.AutodetectAndUseUserTimezone {
+			timezone = passageoftime.GetSystemTimezone()
+		} else {
+			timezone = defaultTimezone
+		}
 	}
 
-	loc, err := time.LoadLocation(timezone)
+	options := passageoftime.ParseOptions{
+		Timezone: timezone,
+	}
+
+	result, err := passageoftime.CurrentDateTime(options)
 	if err != nil {
-		return nil, fmt.Errorf("unknown timezone '%s': %w", timezone, err)
+		return nil, err
 	}
-
-	now := time.Now().In(loc)
-	result := now.Format(time.RFC3339)
 
 	return &mcp.CallToolResultFor[struct{}]{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: result},
+			&mcp.TextContent{Text: result.Timestamp.Format(time.RFC3339)},
 		},
 	}, nil
 }
@@ -122,7 +152,11 @@ func handleTimeDifference(ctx context.Context, ss *mcp.ServerSession, params *mc
 	
 	timezone := args.Timezone
 	if timezone == "" {
-		timezone = defaultTimezone
+		if args.AutodetectAndUseUserTimezone {
+			timezone = passageoftime.GetSystemTimezone()
+		} else {
+			timezone = defaultTimezone
+		}
 	}
 	
 	unit := args.Unit
@@ -130,27 +164,24 @@ func handleTimeDifference(ctx context.Context, ss *mcp.ServerSession, params *mc
 		unit = "auto"
 	}
 
-	t1, err := parseTimestamp(args.Timestamp1, timezone)
-	if err != nil {
-		return nil, fmt.Errorf("invalid timestamp1: %w", err)
+	// Use passageoftime library for parsing and calculation
+	options := passageoftime.ParseOptions{
+		EnableFuzzyParsing: args.EnableFuzzyParsing,
+		Timezone:           timezone,
+		ReferenceTime:      time.Now(),
 	}
 
-	t2, err := parseTimestamp(args.Timestamp2, timezone)
+	durationResult, err := passageoftime.TimeDifference(args.Timestamp1, args.Timestamp2, options)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timestamp2: %w", err)
+		return nil, err
 	}
 
-	diff := t2.Sub(t1)
-	seconds := diff.Seconds()
+	seconds := durationResult.Duration
 	isNegative := seconds < 0
-	absSeconds := seconds
-	if isNegative {
-		absSeconds = -seconds
-	}
-
+	
 	result := map[string]interface{}{
 		"seconds":     seconds,
-		"formatted":   formatDuration(absSeconds, "full", isNegative),
+		"formatted":   durationResult.PreciseDescription,
 		"is_negative": isNegative,
 	}
 
@@ -183,41 +214,35 @@ func handleTimeSince(ctx context.Context, ss *mcp.ServerSession, params *mcp.Cal
 	
 	timezone := args.Timezone
 	if timezone == "" {
-		timezone = defaultTimezone
+		if args.AutodetectAndUseUserTimezone {
+			timezone = passageoftime.GetSystemTimezone()
+		} else {
+			timezone = defaultTimezone
+		}
 	}
 
-	loc, err := time.LoadLocation(timezone)
+	// Use passageoftime library for parsing and calculation
+	options := passageoftime.ParseOptions{
+		EnableFuzzyParsing: args.EnableFuzzyParsing,
+		Timezone:           timezone,
+		ReferenceTime:      time.Now(),
+	}
+
+	durationResult, err := passageoftime.TimeSince(args.Timestamp, options)
 	if err != nil {
-		return nil, fmt.Errorf("unknown timezone '%s': %w", timezone, err)
+		return nil, err
 	}
 
-	t, err := parseTimestamp(args.Timestamp, timezone)
-	if err != nil {
-		return nil, fmt.Errorf("invalid timestamp: %w", err)
-	}
+	seconds := durationResult.Duration
 
-	now := time.Now().In(loc)
-	diff := now.Sub(t)
-	seconds := diff.Seconds()
-	absSeconds := seconds
-	if seconds < 0 {
-		absSeconds = -seconds
-	}
-
-	// Generate context
-	context := getTimeContext(t, now, seconds)
-
-	formatted := formatDuration(absSeconds, "full", false)
-	if seconds >= 0 {
-		formatted += " ago"
-	} else {
-		formatted += " from now"
-	}
+	// Generate context using library function
+	context := passageoftime.GetTimeContext(durationResult.StartTime, durationResult.EndTime, seconds)
 
 	result := map[string]interface{}{
 		"seconds":   seconds,
-		"formatted": formatted,
+		"formatted": durationResult.PreciseDescription,
 		"context":   context,
+		"timezone":  timezone,
 	}
 
 	return &mcp.CallToolResultFor[struct{}]{
@@ -232,7 +257,11 @@ func handleParseTimestamp(ctx context.Context, ss *mcp.ServerSession, params *mc
 	
 	targetTimezone := args.TargetTimezone
 	if targetTimezone == "" {
-		targetTimezone = defaultTimezone
+		if args.AutodetectAndUseUserTimezone {
+			targetTimezone = passageoftime.GetSystemTimezone()
+		} else {
+			targetTimezone = defaultTimezone
+		}
 	}
 
 	// Use source timezone if provided, otherwise use target
@@ -241,7 +270,14 @@ func handleParseTimestamp(ctx context.Context, ss *mcp.ServerSession, params *mc
 		parseTz = targetTimezone
 	}
 
-	t, err := parseTimestamp(args.Timestamp, parseTz)
+	// Use passageoftime library for parsing
+	options := passageoftime.ParseOptions{
+		EnableFuzzyParsing: args.EnableFuzzyParsing,
+		Timezone:           parseTz,
+		ReferenceTime:      time.Now(),
+	}
+
+	t, err := passageoftime.ParseFuzzyTimestamp(args.Timestamp, options)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp: %w", err)
 	}
@@ -256,13 +292,14 @@ func handleParseTimestamp(ctx context.Context, ss *mcp.ServerSession, params *mc
 	}
 
 	result := map[string]interface{}{
-		"iso":         t.Format(time.RFC3339),
-		"unix":        fmt.Sprintf("%d", t.Unix()),
-		"human":       t.Format("January 2, 2006 at 3:04 PM MST"),
-		"timezone":    targetTimezone,
-		"day_of_week": t.Format("Monday"),
-		"date":        t.Format("2006-01-02"),
-		"time":        t.Format("15:04:05"),
+		"iso":                t.Format(time.RFC3339),
+		"unix":               fmt.Sprintf("%d", t.Unix()),
+		"human":              t.Format("January 2, 2006 at 3:04 PM MST"),
+		"timezone":           targetTimezone,
+		"day_of_week":        t.Format("Monday"),
+		"date":               t.Format("2006-01-02"),
+		"time":               t.Format("15:04:05"),
+		"source_timezone":    parseTz,
 	}
 
 	return &mcp.CallToolResultFor[struct{}]{
@@ -277,10 +314,21 @@ func handleAddTime(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallT
 	
 	timezone := args.Timezone
 	if timezone == "" {
-		timezone = defaultTimezone
+		if args.AutodetectAndUseUserTimezone {
+			timezone = passageoftime.GetSystemTimezone()
+		} else {
+			timezone = defaultTimezone
+		}
 	}
 
-	t, err := parseTimestamp(args.Timestamp, timezone)
+	// Use passageoftime library for parsing
+	options := passageoftime.ParseOptions{
+		EnableFuzzyParsing: args.EnableFuzzyParsing,
+		Timezone:           timezone,
+		ReferenceTime:      time.Now(),
+	}
+
+	t, err := passageoftime.ParseFuzzyTimestamp(args.Timestamp, options)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp: %w", err)
 	}
@@ -307,10 +355,10 @@ func handleAddTime(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallT
 
 	resultTime := t.Add(d)
 
-	// Generate description
+	// Generate description using library function
 	loc, _ := time.LoadLocation(timezone)
 	now := time.Now().In(loc)
-	description := getTimeDescription(resultTime, now, isDateOnly)
+	description := passageoftime.GetTimeDescription(resultTime, now, isDateOnly)
 
 	// Format result to match input format
 	var resultStr string
@@ -338,10 +386,21 @@ func handleTimestampContext(ctx context.Context, ss *mcp.ServerSession, params *
 	
 	timezone := args.Timezone
 	if timezone == "" {
-		timezone = defaultTimezone
+		if args.AutodetectAndUseUserTimezone {
+			timezone = passageoftime.GetSystemTimezone()
+		} else {
+			timezone = defaultTimezone
+		}
 	}
 
-	t, err := parseTimestamp(args.Timestamp, timezone)
+	// Use passageoftime library for parsing
+	options := passageoftime.ParseOptions{
+		EnableFuzzyParsing: args.EnableFuzzyParsing,
+		Timezone:           timezone,
+		ReferenceTime:      time.Now(),
+	}
+
+	t, err := passageoftime.ParseFuzzyTimestamp(args.Timestamp, options)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp: %w", err)
 	}
@@ -360,7 +419,7 @@ func handleTimestampContext(ctx context.Context, ss *mcp.ServerSession, params *
 	case hour >= 9 && hour < 12:
 		timeOfDay = "morning"
 	case hour >= 12 && hour < 17:
-		timeOfDay = "afternoon"
+			timeOfDay = "afternoon"
 	case hour >= 17 && hour < 21:
 		timeOfDay = "evening"
 	default:
@@ -436,11 +495,128 @@ func handleFormatDuration(ctx context.Context, ss *mcp.ServerSession, params *mc
 		seconds = -seconds
 	}
 
-	result := formatDuration(seconds, style, isNegative)
+	// Use passageoftime library for duration formatting
+	durationFormatted := passageoftime.FormatDuration(seconds, style, isNegative)
+	
+	// Add precise timestamp like other handlers
+	now := time.Now()
+	targetTime := now.Add(time.Duration(seconds) * time.Second)
+	if isNegative {
+		targetTime = now.Add(-time.Duration(seconds) * time.Second)
+	}
+	
+	result := passageoftime.FormatWithPreciseTimestamp(durationFormatted, targetTime, "UTC")
 
 	return &mcp.CallToolResultFor[struct{}]{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: result},
+		},
+	}, nil
+}
+
+func handleListTimezones(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[ListTimezonesArgs]) (*mcp.CallToolResultFor[struct{}], error) {
+	args := params.Arguments
+	
+	// Set defaults and validate pagination parameters
+	limit := args.Limit
+	page := args.Page
+	usePopularDefault := limit == 0 && args.Filter == "" && page == 0
+	
+	if limit == 0 {
+		if usePopularDefault {
+			limit = 25 // Popular timezones default
+		} else {
+			limit = 100 // Default page size for pagination
+		}
+	} else if limit > 100 {
+		limit = 100 // Max per page for performance
+	}
+	
+	if page == 0 {
+		page = 1 // Default to first page
+	}
+	
+	// Get timezone identifiers - use popular list by default, all when filtering/pagination
+	var sourceTimezones []string
+	if usePopularDefault {
+		sourceTimezones = passageoftime.GetPopularTimezoneIDs()
+	} else {
+		sourceTimezones = passageoftime.GetAllTimezoneIDs()
+	}
+	
+	// Apply filter if provided
+	var filteredTimezones []string
+	filter := strings.ToLower(args.Filter)
+	
+	for _, tz := range sourceTimezones {
+		if filter == "" || strings.Contains(strings.ToLower(tz), filter) {
+			filteredTimezones = append(filteredTimezones, tz)
+		}
+	}
+	
+	// Apply pagination
+	totalCount := len(filteredTimezones)
+	startIndex := (page - 1) * limit
+	endIndex := startIndex + limit
+	
+	if startIndex >= totalCount {
+		filteredTimezones = []string{} // Empty page
+	} else {
+		if endIndex > totalCount {
+			endIndex = totalCount
+		}
+		filteredTimezones = filteredTimezones[startIndex:endIndex]
+	}
+	
+	// Build result with timezone info
+	timezoneInfos := make([]map[string]interface{}, len(filteredTimezones))
+	now := time.Now()
+	
+	for i, tzID := range filteredTimezones {
+		loc, err := time.LoadLocation(tzID)
+		if err != nil {
+			continue // Skip invalid timezones
+		}
+		
+		nowInTz := now.In(loc)
+		_, offset := nowInTz.Zone()
+		offsetHours := float64(offset) / 3600
+		
+		timezoneInfos[i] = map[string]interface{}{
+			"id":          tzID,
+			"name":        nowInTz.Location().String(),
+			"offset":      offsetHours,
+			"offset_str":  passageoftime.FormatOffset(offset),
+			"current_time": nowInTz.Format("2006-01-02 15:04:05 MST"),
+		}
+	}
+	
+	// Calculate pagination metadata
+	actualReturned := len(timezoneInfos)
+	totalPages := (totalCount + limit - 1) / limit // Ceiling division
+	hasNextPage := page < totalPages
+	hasPrevPage := page > 1
+	
+	// Always show total available from full list for reference
+	allTimezones := passageoftime.GetAllTimezoneIDs()
+	
+	result := map[string]interface{}{
+		"total_available": len(allTimezones),
+		"total_filtered":  totalCount,
+		"returned_count":  actualReturned,
+		"page":           page,
+		"limit":          limit,
+		"total_pages":    totalPages,
+		"has_next_page":  hasNextPage,
+		"has_prev_page":  hasPrevPage,
+		"filter":         args.Filter,
+		"using_popular":  usePopularDefault,
+		"timezones":      timezoneInfos,
+	}
+	
+	return &mcp.CallToolResultFor[struct{}]{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: fmt.Sprintf("%v", result)},
 		},
 	}, nil
 }

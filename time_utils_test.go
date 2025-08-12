@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/justcfx2u/passage-of-time-mcp-go/passageoftime"
 )
 
 // Test parseTimestamp function
@@ -61,13 +63,16 @@ func TestParseTimestamp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseTimestamp(tt.timestamp, tt.timezone)
+			options := passageoftime.ParseOptions{
+				Timezone: tt.timezone,
+			}
+			result, err := passageoftime.ParseTimestamp(tt.timestamp, options)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseTimestamp() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseTimestamp() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && tt.validate != nil && !tt.validate(got) {
-				t.Errorf("parseTimestamp() validation failed for %v", got)
+			if !tt.wantErr && tt.validate != nil && !tt.validate(result) {
+				t.Errorf("ParseTimestamp() validation failed for %v", result)
 			}
 		})
 	}
@@ -156,9 +161,9 @@ func TestFormatDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatDuration(tt.seconds, tt.style, tt.isNegative)
+			got := passageoftime.FormatDuration(tt.seconds, tt.style, tt.isNegative)
 			if got != tt.want {
-				t.Errorf("formatDuration() = %v, want %v", got, tt.want)
+				t.Errorf("FormatDuration() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -227,9 +232,9 @@ func TestGetTimeContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTimeContext(tt.t, now, tt.seconds)
+			got := passageoftime.GetTimeContext(tt.t, now, tt.seconds)
 			if got != tt.want {
-				t.Errorf("getTimeContext() = %v, want %v", got, tt.want)
+				t.Errorf("GetTimeContext() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -292,9 +297,9 @@ func TestGetTimeDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTimeDescription(tt.t, now, tt.isDateOnly)
+			got := passageoftime.GetTimeDescription(tt.t, now, tt.isDateOnly)
 			if got != tt.want {
-				t.Errorf("getTimeDescription() = %v, want %v", got, tt.want)
+				t.Errorf("GetTimeDescription() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -322,9 +327,9 @@ func TestGetStringParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getStringParam(params, tt.key, tt.defaultValue)
+			got := passageoftime.GetStringParam(params, tt.key, tt.defaultValue)
 			if got != tt.want {
-				t.Errorf("getStringParam() = %v, want %v", got, tt.want)
+				t.Errorf("GetStringParam() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -355,9 +360,9 @@ func TestGetFloatParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getFloatParam(params, tt.key, tt.defaultValue)
+			got := passageoftime.GetFloatParam(params, tt.key, tt.defaultValue)
 			if got != tt.want {
-				t.Errorf("getFloatParam() = %v, want %v", got, tt.want)
+				t.Errorf("GetFloatParam() = %v, want %v", got, tt.want)
 			}
 		})
 	}

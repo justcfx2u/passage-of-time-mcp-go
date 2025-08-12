@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/justcfx2u/passage-of-time-mcp-go/passageoftime"
 )
 
 func TestParseTimestampISO8601(t *testing.T) {
@@ -66,13 +68,16 @@ func TestParseTimestampISO8601(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseTimestamp(tt.timestamp, tt.timezone)
+			options := passageoftime.ParseOptions{
+				Timezone: tt.timezone,
+			}
+			got, err := passageoftime.ParseTimestamp(tt.timestamp, options)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("%s: parseTimestamp() error = %v, wantErr %v", tt.desc, err, tt.wantErr)
+				t.Errorf("%s: ParseTimestamp() error = %v, wantErr %v", tt.desc, err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && got.IsZero() {
-				t.Errorf("%s: parseTimestamp() returned zero time", tt.desc)
+				t.Errorf("%s: ParseTimestamp() returned zero time", tt.desc)
 			}
 		})
 	}
@@ -83,7 +88,8 @@ func TestParseTimestampTimezoneConversion(t *testing.T) {
 	timestamp := "2025-07-19T12:00:00Z"  // Noon UTC
 	
 	// Parse to New York time
-	nyTime, err := parseTimestamp(timestamp, "America/New_York")
+	nyOptions := passageoftime.ParseOptions{Timezone: "America/New_York"}
+	nyTime, err := passageoftime.ParseTimestamp(timestamp, nyOptions)
 	if err != nil {
 		t.Fatalf("Failed to parse timestamp: %v", err)
 	}
@@ -95,7 +101,8 @@ func TestParseTimestampTimezoneConversion(t *testing.T) {
 	}
 	
 	// Parse to Tokyo time
-	tokyoTime, err := parseTimestamp(timestamp, "Asia/Tokyo")
+	tokyoOptions := passageoftime.ParseOptions{Timezone: "Asia/Tokyo"}
+	tokyoTime, err := passageoftime.ParseTimestamp(timestamp, tokyoOptions)
 	if err != nil {
 		t.Fatalf("Failed to parse timestamp: %v", err)
 	}
@@ -112,7 +119,8 @@ func TestTimeSinceWithISO8601(t *testing.T) {
 	oneHourAgo := time.Now().Add(-time.Hour).Format(time.RFC3339)
 	
 	// This would be called by the MCP handler
-	parsedTime, err := parseTimestamp(oneHourAgo, "UTC")
+	utcOptions := passageoftime.ParseOptions{Timezone: "UTC"}
+	parsedTime, err := passageoftime.ParseTimestamp(oneHourAgo, utcOptions)
 	if err != nil {
 		t.Fatalf("Failed to parse ISO timestamp: %v", err)
 	}
