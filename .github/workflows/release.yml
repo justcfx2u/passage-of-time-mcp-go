@@ -27,13 +27,12 @@ jobs:
       with:
         go-version: '1.21'
         
-    - name: Run tests (standard)
-      if: matrix.variant == 'standard'
+    - name: Generate timezone data
+      run: |
+        go run cmd/generate-timezone-list/main.go -output passageoftime/internal/timezones.go
+        
+    - name: Run tests
       run: go test ./...
-      
-    - name: Run tests (semantic)
-      if: matrix.variant == 'semantic'
-      run: go test -tags semantic ./...
       
     - name: Build binary
       env:
