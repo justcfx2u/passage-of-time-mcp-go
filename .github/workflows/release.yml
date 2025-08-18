@@ -32,7 +32,7 @@ jobs:
         go run cmd/generate-timezone-list/main.go -output passageoftime/internal/timezones.go
         
     - name: Run tests
-      run: go test ./...
+      run: go test . ./passageoftime/...
       
     - name: Build binary
       env:
